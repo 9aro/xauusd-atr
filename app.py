@@ -7,8 +7,7 @@ app = Flask(__name__)
 CORS(app)
 
 POLYGON_KEY = "bgH0QPcnGgwSFPBib3TpGdfVpylpC3Bu"
-cache_atr = None
-cache_time = 0
+_cache = {"atr": None, "ts": 0}
 
 def get_atr_from_polygon():
     now = time.gmtime()
@@ -35,14 +34,14 @@ def get_atr_from_polygon():
 
 @app.route("/atr")
 def atr():
-    global cache_atr, cache_time
-    if cache_atr and (time.time() - cache_time) < 60:
-        return jsonify({"atr": cache_atr, "source": "cache"})
+    now = time.time()
+    if _cache["atr"] and (now - _cache["ts"]) < 60:
+        return jsonify({"atr": _cache["atr"], "source": "cache", "age": int(now - _cache["ts"])})
     try:
         val = get_atr_from_polygon()
         if val:
-            cache_atr = val
-            cache_time = time.time()
+            _cache["atr"] = val
+            _cache["ts"] = time.time()
             return jsonify({"atr": val, "source": "polygon"})
         return jsonify({"error": "no data"}), 500
     except Exception as e:
