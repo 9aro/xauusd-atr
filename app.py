@@ -2,7 +2,6 @@ from flask import Flask, jsonify
 import requests
 import time
 from flask_cors import CORS
-from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
@@ -29,15 +28,22 @@ def compute_wilder_atr(candles, period=14):
     return round(atr, 2)
 
 def fetch_atr():
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    yesterday = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
-    url = (f"https://api.polygon.io/v2/aggs/ticker/C:XAUUSD/range/1/minute"
-           f"/{yesterday}/{today}?sort=asc&limit=500&apiKey={API_KEY}")
+    import time as t
+    now = t.gmtime()
+    today = "%04d-%02d-%02d" % (now.tm_year, now.tm_mon, now.tm_mday)
+    # go back 3 days to ensure enough candles
+    epoch_3days_ago = t.time() - (3 * 24 * 3600)
+    past = t.gmtime(epoch_3days_ago)
+    from_date = "%04d-%02d-%02d" % (past.tm_year, past.tm_mon, past.tm_mday)
+    url = (
+        "https://api.polygon.io/v2/aggs/ticker/C:XAUUSD/range/1/minute"
+        f"/{from_date}/{today}?sort=asc&limit=500&apiKey={API_KEY}"
+    )
     r = requests.get(url, timeout=15)
     d = r.json()
     results = d.get("results", [])
     if not results:
-        raise Exception("No data from Polygon")
+        raise Exception("No data from Polygon: " + str(d))
     return compute_wilder_atr(results)
 
 def get_atr():
@@ -59,8 +65,4 @@ def atr_endpoint():
     val, source = get_atr()
     if val is None:
         return jsonify({"error": "Failed to fetch ATR"}), 500
-    return jsonify({"atr": val, "source": source, "symbol": "XAU/USD", "period": 14, "interval": "1m"})
-
-@app.route("/")
-def home():
-    return jsonify({"status": "ok", "mess
+ 
