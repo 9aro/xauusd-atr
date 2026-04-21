@@ -9,8 +9,6 @@ CORS(app)
 _cache = {"atr": None, "ts": 0}
 CACHE_TTL = 60
 
-CORRECTION = 1.34
-
 def compute_wilder_atr(highs, lows, closes, period=14):
     trs = []
     for i in range(1, len(highs)):
@@ -20,8 +18,8 @@ def compute_wilder_atr(highs, lows, closes, period=14):
         return None
     atr = sum(trs[:period]) / period
     for i in range(period, len(trs)):
-        atr = (atr * (period-1) + trs[i]) / period
-    return round(atr * CORRECTION, 2)
+        atr = (atr * (period - 1) + trs[i]) / period
+    return round(atr, 2)
 
 def fetch_atr():
     url = "https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=500&apikey=c48c422fd1744197b804c436036e6315"
