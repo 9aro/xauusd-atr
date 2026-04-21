@@ -2,36 +2,43 @@ from flask import Flask, jsonify
 import requests
 import time
 from flask_cors import CORS
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
 _cache = {"atr": None, "ts": 0}
 CACHE_TTL = 60
+API_KEY = "bgH0QPcnGgwSFPBib3TpGdfVpylpC3Bu"
 
-CORRECTION = 1.34
-
-def compute_wilder_atr(highs, lows, closes, period=14):
+def compute_wilder_atr(candles, period=14):
+    highs  = [c["h"] for c in candles]
+    lows   = [c["l"] for c in candles]
+    closes = [c["c"] for c in candles]
     trs = []
     for i in range(1, len(highs)):
-        tr = max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1]))
+        tr = max(highs[i] - lows[i],
+                 abs(highs[i] - closes[i-1]),
+                 abs(lows[i]  - closes[i-1]))
         trs.append(tr)
     if len(trs) < period:
         return None
     atr = sum(trs[:period]) / period
     for i in range(period, len(trs)):
-        atr = (atr * (period-1) + trs[i]) / period
-    return round(atr * CORRECTION, 2)
+        atr = (atr * (period - 1) + trs[i]) / period
+    return round(atr, 2)
 
 def fetch_atr():
-    url = "https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=500&apikey=c48c422fd1744197b804c436036e6315"
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday = (datetime.utcnow() - timedelta(days=2)).strftime("%Y-%m-%d")
+    url = (f"https://api.polygon.io/v2/aggs/ticker/C:XAUUSD/range/1/minute"
+           f"/{yesterday}/{today}?sort=asc&limit=500&apiKey={API_KEY}")
     r = requests.get(url, timeout=15)
     d = r.json()
-    candles = list(reversed(d["values"]))
-    highs  = [float(c["high"])  for c in candles]
-    lows   = [float(c["low"])   for c in candles]
-    closes = [float(c["close"]) for c in candles]
-    return compute_wilder_atr(highs, lows, closes)
+    results = d.get("results", [])
+    if not results:
+        raise Exception("No data from Polygon")
+    return compute_wilder_atr(results)
 
 def get_atr():
     now = time.time()
@@ -42,7 +49,7 @@ def get_atr():
         if atr:
             _cache["atr"] = atr
             _cache["ts"] = now
-            return atr, "twelvedata"
+            return atr, "polygon"
     except Exception as e:
         print(f"Fetch failed: {e}")
     return None, None
@@ -56,7 +63,4 @@ def atr_endpoint():
 
 @app.route("/")
 def home():
-    return jsonify({"status": "ok", "message": "XAUUSD ATR API"})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    return jsonify({"status": "ok", "mess
