@@ -28,25 +28,24 @@ def compute_wilder_atr(candles, period=14):
     return round(atr, 2)
 
 def fetch_atr():
-    import time as t
-    now = t.gmtime()
+    now = time.gmtime()
     today = "%04d-%02d-%02d" % (now.tm_year, now.tm_mon, now.tm_mday)
-    epoch_3days_ago = t.time() - (3 * 24 * 3600)
-    past = t.gmtime(epoch_3days_ago)
+    epoch_3days_ago = time.time() - (3 * 24 * 3600)
+    past = time.gmtime(epoch_3days_ago)
     from_date = "%04d-%02d-%02d" % (past.tm_year, past.tm_mon, past.tm_mday)
     url = (
         "https://api.polygon.io/v2/aggs/ticker/C:XAUUSD/range/1/minute"
-        f"/{from_date}/{today}?sort=asc&limit=500&apiKey={API_KEY}"
+        "/" + from_date + "/" + today + "?sort=asc&limit=500&apiKey=" + API_KEY
     )
-    print(f"Fetching URL: {url}")
+    print("Fetching: " + url)
     r = requests.get(url, timeout=15)
     d = r.json()
-    print(f"Polygon response: status={d.get('status')}, count={d.get('resultsCount')}, error={d.get('error')}, message={d.get('message')}")
+    print("Polygon status: " + str(d.get("status")) + " count: " + str(d.get("resultsCount")))
     results = d.get("results", [])
     if not results:
-        raise Exception("No results from Polygon: " + str(d))
+        raise Exception("No results: " + str(d))
     atr = compute_wilder_atr(results)
-    print(f"Computed ATR: {atr}")
+    print("ATR: " + str(atr))
     return atr
 
 def get_atr():
@@ -60,4 +59,8 @@ def get_atr():
             _cache["ts"] = now
             return atr, "polygon"
     except Exception as e:
-        print(f"Fetch failed: 
+        print("Fetch failed: " + str(e))
+    return None, None
+
+@app.route("/atr")
+def atr_endpo
