@@ -6,18 +6,18 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-TWELVE_KEY = 'c48c422fd1744197b804c436036e6315'
-_cache = {'atr': None, 'ts': 0}
-_correction = {'factor': 1.0}
+TWELVE_KEY = "c48c422fd1744197b804c436036e6315"
+_cache = {"atr": None, "ts": 0}
+_correction = {"factor": 1.0}
 
 def fetch_raw_atr():
-    url = 'https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=500&apikey=' + TWELVE_KEY
+    url = "https://api.twelvedata.com/time_series?symbol=XAU/USD&interval=1min&outputsize=500&apikey=" + TWELVE_KEY
     resp = requests.get(url, timeout=15)
     data = resp.json()
-    candles = list(reversed(data['values']))
-    highs  = [float(c['high'])  for c in candles]
-    lows   = [float(c['low'])   for c in candles]
-    closes = [float(c['close']) for c in candles]
+    candles = list(reversed(data["values"]))
+    highs = [float(c["high"]) for c in candles]
+    lows = [float(c["low"]) for c in candles]
+    closes = [float(c["close"]) for c in candles]
     trs = []
     for i in range(1, len(candles)):
         tr = max(highs[i]-lows[i], abs(highs[i]-closes[i-1]), abs(lows[i]-closes[i-1]))
@@ -29,32 +29,39 @@ def fetch_raw_atr():
 
 def get_atr():
     now = time.time()
-    if _cache['atr'] and (now - _cache['ts']) < 60:
-        corrected = round(_cache['atr'] * _correction['factor'], 2)
-        return corrected, 'cache', int(now - _cache['ts'])
+    if _cache["atr"] and (now - _cache["ts"]) < 60:
+        return round(_cache["atr"] * _correction["factor"], 2), "cache", int(now - _cache["ts"])
     raw = fetch_raw_atr()
-    _cache['atr'] = raw
-    _cache['ts'] = time.time()
-    corrected = round(raw * _correction['factor'], 2)
-    return corrected, 'twelvedata', 0
+    _cache["atr"] = raw
+    _cache["ts"] = time.time()
+    return round(raw * _correction["factor"], 2), "twelvedata", 0
 
-@app.route('/atr')
+@app.route("/atr")
 def atr_endpoint():
     try:
         val, source, age = get_atr()
-        return jsonify({'atr': val, 'raw': round(_cache['atr'], 4), 'source': source, 'age': age, 'correction': _correction['factor']})
+        return jsonify({"atr": val, "raw": _cache["atr"], "source": source, "age": age, "correction": _correction["factor"]})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/calibrate', methods=['POST'])
+@app.route("/calibrate", methods=["POST"])
 def calibrate():
     try:
-        tv_atr = float(request.json.get('tv_atr', 0))
+        tv_atr = float(request.json.get("tv_atr", 0))
         if tv_atr <= 0:
-            return jsonify({'error': 'invalid tv_atr'}), 400
-        raw = _cache['atr']
-        if not raw:
-            raw = fetch_raw_atr()
-            _cache['atr'] = raw
-            _cache['ts'] = time.time()
-        factor = round(tv)
+            return jsonify({"error": "invalid"}), 400
+        raw = _cache["atr"] or fetch_raw_atr()
+        _cache["atr"] = raw
+        _cache["ts"] = time.time()
+        factor = round(tv_atr / raw, 4)
+        _correction["factor"] = factor
+        return jsonify({"tv_atr": tv_atr, "raw_atr": raw, "correction_factor": factor})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/")
+def home():
+    return jsonify({"status": "ok"})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
