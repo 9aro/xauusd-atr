@@ -9,7 +9,7 @@ CORS(app)
 _cache = {"atr": None, "ts": 0}
 CACHE_TTL = 60
 
-CORRECTION = 1.68
+CORRECTION = 1.34
 
 def compute_wilder_atr(highs, lows, closes, period=14):
     trs = []
