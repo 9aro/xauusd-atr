@@ -6,7 +6,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-TWELVE_KEY = "c48c422fd1744197b804c436036e6315"
+TWELVE_KEY = "0236a5701f2e4e7399c67d452984516b"
 _cache = {"atr": None, "ts": 0}
 _correction = {"factor": 1.0}
 
